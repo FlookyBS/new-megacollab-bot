@@ -69,7 +69,7 @@ class About(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @slash_command()
+    @slash_command(name="about")
     async def about(self, ctx):
         await ctx.response.defer()
 
