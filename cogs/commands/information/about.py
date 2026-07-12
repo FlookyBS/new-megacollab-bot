@@ -10,6 +10,7 @@ from utils.generaterandomlyric import generate_random_lyric
 import discord
 import psutil
 import platform
+from utils.version import (isstable, icyversion, icycommitdate)
 
 class AboutView(discord.ui.DesignerView):
     def __init__(self, bot, user: discord.User, cpumodel, hardwaremodel, schemaversion, randomquote):
@@ -59,10 +60,9 @@ class AboutView(discord.ui.DesignerView):
         if schemaversion['REVISION'] >= 1
         else "")
 
-        """
-        container.add_text(f"Icy version {f"**{ICY_VERSION}** *({ICY_COMMIT_DATE})*" if not isstable(ICY_VERSION) else f"**{ICY_VERSION}**"} on database version **{self.schemaversion['VERSION_STRING']}**\n*-# API Version {self.schemaversion['API_VERSION']}{revision_part}*"
+        container.add_text(f"Icy version {f"**{icyversion()}** *({icycommitdate()})*" if not isstable(icyversion()) else f"**{icycommitdate()}**"} on database version **{self.schemaversion['VERSION_STRING']}**\n*-# API Version {self.schemaversion['API_VERSION']}{revision_part}*"
         )
-        """
+        
         container.add_text(f"-# {randomquote}")
 
         self.add_item(container)
