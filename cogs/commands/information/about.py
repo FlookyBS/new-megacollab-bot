@@ -6,6 +6,7 @@ from utils.aboutcomputer import (
     get_hardware_model,
     getschemaversion,
 )
+from utils.generaterandomlyric import generate_random_lyric
 import discord
 import psutil
 import platform
@@ -41,7 +42,7 @@ class AboutView(discord.ui.DesignerView):
 
         container = discord.ui.Container(
             section,
-            discord.ui.TextDisplay("*Bot made by <@1186901892538843198>*"),
+            discord.ui.TextDisplay("*Bot made by <@575359302613729291>*"),
             color=0xFFFFFF,
         )
         container.add_separator(divider=True, spacing=discord.SeparatorSpacingSize.large)
@@ -58,9 +59,10 @@ class AboutView(discord.ui.DesignerView):
         if schemaversion['REVISION'] >= 1
         else "")
 
+        """
         container.add_text(f"Icy version {f"**{ICY_VERSION}** *({ICY_COMMIT_DATE})*" if not isstable(ICY_VERSION) else f"**{ICY_VERSION}**"} on database version **{self.schemaversion['VERSION_STRING']}**\n*-# API Version {self.schemaversion['API_VERSION']}{revision_part}*"
         )
-
+        """
         container.add_text(f"-# {randomquote}")
 
         self.add_item(container)

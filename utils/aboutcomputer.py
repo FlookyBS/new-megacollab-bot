@@ -59,4 +59,4 @@ async def getschemaversion() -> dict:
     return schemaversion
     """
 
-    return "STUB"
+    return {'API_VERSION': 1, 'REVISION': 1, 'VERSION_STRING': "1.0"}

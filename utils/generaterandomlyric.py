@@ -1,3 +1,5 @@
+import random
+
 async def generate_random_lyric():
     lyrics = [
         '"Are you calling my name?"',
