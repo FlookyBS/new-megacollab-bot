@@ -9,6 +9,10 @@ from pathlib import Path
 import asyncio
 import argparse
 from utils.syncer import sync_server_to_database
+from utils.version import icyversion
+from utils.version import icycommitdate
+from utils.version import isstable
+
 
 parser = argparse.ArgumentParser(description="Start the Icy bot")
 
@@ -33,7 +37,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 if args.v:
-    print(f'Icy version {ICY_VERSION} {f"({ICY_COMMIT_DATE})" if not isstable(ICY_VERSION) else ""}')
+    print(f'Icy version {icyversion()} {f"({icycommitdate()})" if not isstable(icyversion()) else ""}')
     exit()
 
 load_dotenv()
