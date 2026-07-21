@@ -1,0 +1,644 @@
+import asyncpg
+import discord
+
+async def db_associatehostwithcollab(
+    conn,
+    guildid: int,
+    userid: int,
+    collabid: int
+):
+    await conn.execute(
+        'CALL "Core".associatehostwithcollab($1, $2, $3)', 
+        guildid, userid, collabid
+    )
+
+async def db_claimpart(
+    conn,
+    guildid: int,
+    userid: int,
+    collabid: int,
+    partid: int
+):
+    await conn.execute(
+        'SELECT "Core".claimpart($1, $2, $3, $4)', 
+        guildid, userid, collabid, partid
+    )
+
+async def db_droppart(
+    conn,
+    guildid: int,
+    userid: int,
+    collabid: int,
+    partid: int
+):
+    await conn.execute(
+        'SELECT "Core".droppart($1, $2, $3, $4)', 
+        guildid, userid, collabid, partid
+    )
+
+async def db_createmegacollab(
+    conn,
+    name: str, 
+    songid: int, 
+    durationindays: int, 
+    difficultyid: int,
+    maxgroups: Optional[int]=500,
+    seasontokensrequired: Optional[int]=0, 
+    customstartdate: Optional[int]=None,
+    acknowledgeduplication: Optional[bool]=False,
+):
+    collabid = await conn.fetchval(
+        'SELECT "Core".createmegacollab($1, $2, $3, $4, $5, $6, $7, $8)', 
+        name, songid, durationindays, difficultyid, maxgroups, seasontokensrequired, customstartdate, acknowledgeduplication
+    )
+            
+    return collabid
+
+async def db_addpartsubmission(
+    conn,
+    claimid: int,
+    level: str=None, 
+    levelid: int=None
+):
+    await conn.execute(
+        'SELECT "Core".addpartsubmission($1, $2, $3)', 
+        claimid, level, levelid
+    )
+
+async def db_associatesongwithartist(
+    conn,
+    songid: int,
+    artistid: int
+):
+    await conn.execute(
+        'CALL "Core".associatesongwithartist($1, $2)', 
+        songid, artistid
+    )
+
+async def db_addpart(
+    conn,
+    newpartid: int, # this is int2 in the procedure and in the table
+    collabid: int, # this is int4 in the procedure and in the table
+    offsetstart: int, # this is numeric in the procedure and in the table 
+    offsetend: int, # this is numeric in the procedure and in the table
+    rating: int # this is between 1 and 5
+):
+    await conn.execute(
+        'CALL "Core".addpart($1, $2, $3, $4, $5)', 
+        newpartid, collabid, offsetstart, offsetend, rating
+        )
+
+async def db_addsonglink(
+    conn,
+    songid: int, 
+    platformofchoice: str, 
+    idoraddresstoadd: str, 
+    idusertoadd: str=None
+):
+    await conn.execute(
+        'CALL "Core".addsonglink($1, $2, $3, $4)', 
+        songid, platformofchoice, idoraddresstoadd, idusertoadd
+        )
+
+
+async def db_createsong(
+    conn,
+    name: str, 
+    acknowledgeduplication: Optional[bool]=False,
+):
+    songid = await conn.fetchval(
+        'SELECT "Core".createsong($1, $2)', 
+        name, acknowledgeduplication
+    )
+            
+    return songid
+
+async def db_createartist(
+    conn,
+    name: str, 
+    acknowledgeduplication: Optional[bool]=False,
+):
+    artistid = await conn.fetchval(
+        'SELECT "Core".createartist($1, $2)', 
+        name, acknowledgeduplication
+    )
+            
+    return artistid
+
+async def db_adddiscordrole(
+    conn,
+    roleid: int,
+    rolename: str
+):
+    await conn.execute(
+        'SELECT "Core".adddiscordrole($1, $2)', 
+        roleid, rolename
+    )
+
+async def db_adddiscordmessage(
+    conn,
+    messageid: int,
+    channelid: int
+):
+    await conn.execute(
+        'SELECT "Core".adddiscordmessage($1, $2)', 
+        messageid, channelid
+    )
+
+async def db_adddiscordguild(
+    conn,
+    guildid: int
+):
+    await conn.execute(
+        'SELECT "Core".adddiscordguild($1)', 
+        guildid
+    )
+
+async def db_deletemessage(
+    conn,
+    channelid: int,
+    messageid: int
+):
+    await conn.execute(
+        'SELECT "Core".deletemessage($1, $2)', 
+        channelid, messageid
+    )
+
+async def db_addandsettype(
+    conn,
+    collabid: int,
+    typetoset: str,
+    objecttoadd: Union[discord.Role, discord.Message, discord.TextChannel]
+):
+    match objecttoadd:
+        case discord.Role():
+            await conn.execute(
+                'SELECT "Core".setroletype($1, $2, $3, $4)', 
+                collabid, typetoset, int(objecttoadd.id), int(objecttoadd.guild.id)
+            )
+        case discord.Message():               
+            await conn.execute(
+                'SELECT "Core".setmessagetype($1, $2, $3, $4)', 
+                collabid, typetoset, int(objecttoadd.id), int(objecttoadd.channel.id)
+            )
+        case discord.TextChannel():
+            await conn.execute(
+                'SELECT "Core".setchanneltype($1, $2, $3)', 
+                collabid, typetoset, int(objecttoadd.id)
+            )
+
+async def getschemaversion(bot) -> dict:
+    async with bot.db.acquire() as conn:
+        schemaversion = await conn.fetchrow('select * from "Core".showversion()')
+    
+    schemaversion = {
+        'API_VERSION': schemaversion['apiversion'],
+        'REVISION': schemaversion['revision'],
+        'VERSION_STRING': schemaversion['versionstring'],
+    }
+    
+    return schemaversion
+
+async def addtodatabase_helper(objecttoadd: Union[discord.Role, discord.Member, discord.User, discord.Guild, discord.Message, discord.TextChannel], guild: discord.Guild, conn):
+    match objecttoadd:
+        case discord.Role():
+            if not isinstance(guild, discord.Guild):
+                raise TypeError("Not a Guild")
+
+            if objecttoadd is not None and guild is not None:
+                await conn.execute(
+                    'SELECT "Core".adddiscordrole($1, $2, $3)', 
+                    guild.id, objecttoadd.id, objecttoadd.name
+                )
+            else:
+                raise ValueError("Guild is missing")
+        case discord.Message():
+            await conn.execute(
+                'SELECT "Core".adddiscordmessage($1, $2)', 
+                objecttoadd.id, objecttoadd.channel.id
+            )
+        case discord.User() | discord.Member():
+            if objecttoadd is not None and guild is not None:
+                await conn.execute(
+                    'SELECT "Core".adduser($1, $2)', 
+                    objecttoadd.id, guild.id
+                )
+            else:
+                raise ValueError("Guild is missing")
+        case discord.Guild():
+            await conn.execute(
+                'SELECT "Core".adddiscordguild($1)', 
+                objecttoadd.id
+            )
+        case discord.TextChannel():
+            await conn.execute(
+                'SELECT "Core".adddiscordchannel($1)', 
+                objecttoadd.id
+            )
+        case _:
+            raise TypeError("Not a discord object.")
+
+async def regeneratemessage(conn, message: discord.Message, channel: discord.TextChannel, collabid: int, type: str, view: discord.ui.View):
+    channeltoresendin = channel
+    await db_deletemessage(message.channel, message)
+    await message.delete()
+
+    texttorefresh = await showtext(collabid, messagetype, mentions=False)
+
+    message = await channel.send(content=texttorefresh, view=view)
+
+    await addtodatabase(message)
+    await db_addandsettype(conn, type, message)
+
+    texttorefresh = await showtext(collabid, messagetype, mentions=True)
+
+    message.edit(content=texttorefresh)
+
+async def addtodatabase(bot, objecttoadd: Union[discord.Role, discord.Member, discord.User, discord.Guild, discord.Message, discord.TextChannel], guild: discord.Guild=None, conn=None):
+    """Adds a discord object to the database, takes discord role object as parameter"""
+    if conn is not None:
+        await addtodatabase_helper(objecttoadd, guild, conn)
+    else:
+        async with bot.db.acquire() as conn:
+            await addtodatabase_helper(objecttoadd, guild, conn)
+
+async def show_user_info(user: Union[discord.User, discord.Member], guild: discord.Guild):
+    async with bot.db.acquire() as conn:
+        info = await conn.fetchrow(
+            'SELECT * from "Core".showuser($1, $2)', 
+            user.id, guild.id
+        )
+
+    return info
+
+async def db_showleaderboard(bot, user: Union[discord.User, discord.Member]=None, guild: discord.Guild=None) -> list[dict]:
+    new_dict = []
+
+    async with bot.db.acquire() as conn:
+        info = await conn.fetch(
+            'SELECT * from "Core".showleaderboard($1, $2)', 
+            guild.id, user.id
+        )
+
+    for user in info:
+        new_dict.append(
+            {
+                'guildid': user['guildid'],
+                'position': user['leaderboardposition'],
+                'userid': user['userid'],
+                'seasontokens': user['seasontokens'],
+                'rank': user['rank'],
+                'isleaderboardenabled': user['isleaderboardenabled']
+            }
+        )
+        
+    return new_dict
+
+async def db_showrank(bot, bythreshold: int=None, conn: asyncpg.Connection=None) -> Union[list, list[dict]]:
+    sql = 'select rankname from "Core".showrank($1)'
+
+    if conn is None:
+        async with bot.db.acquire() as conn:
+            if bythreshold is not None:
+                rank = await conn.fetchrow(sql, bythreshold)
+            else:
+                rank = await conn.fetch(sql, bythreshold)
+    else:
+        if bythreshold is not None:
+            rank = await conn.fetchrow(sql, bythreshold)
+        else:
+            rank = await conn.fetch(sql, bythreshold)
+    
+    return rank
+
+async def db_showrankroles(bot, guild: discord.Guild, bythreshold: int=None, conn: asyncpg.Connection=None) -> list:
+    ranks = await db_showrank(bot, bythreshold=bythreshold, conn=conn)
+
+    rankrole_dict = {}
+
+    if conn is not None:
+        rankroles = await conn.fetch(
+            'select rankname, roleid from "Junctions".ranksxdiscordroles where guildid = $1',
+            guild.id
+        )
+    else:
+        async with bot.db.acquire() as conn:
+            rankroles = await conn.fetch(
+                'select rankname, roleid from "Junctions".ranksxdiscordroles where guildid = $1',
+                guild.id
+            )
+    
+    for rankrole in rankroles:
+        role = guild.get_role(rankrole["roleid"])
+
+        if role is None:
+            role = guild.fetch_role(rankrole["roleid"])
+
+        rankrole_dict[rankrole["rankname"]] = role
+
+    return rankrole_dict
+
+async def db_showidol(bot, guild: discord.Guild) -> list[dict]:
+    new_dict = {}
+    
+    async with bot.db.acquire() as conn:
+        info = await conn.fetchrow(
+            'SELECT * from "Core".showidol($1)', 
+            guild.id
+        )
+
+    new_dict = {
+        'guildid': info['guildid'],
+        'position': info['leaderboardposition'],
+        'userid': info['userid'],
+        'seasontokens': info['seasontokens'],
+        'rank': info['rank'],
+        'isleaderboardenabled': info['isleaderboardenabled']
+    }
+    
+    return new_dict
+
+async def db_showcollabs(bot, bycollabid: int=None, bycollabname: str=None):
+    async with bot.db.acquire() as conn:
+        info = await conn.fetch(
+            'SELECT * from "Core".showcollabs($1, $2)', 
+            bycollabid, bycollabname
+        )
+        
+    return info
+
+async def db_showartistname(artistid: int):
+    query = await db_showartists(artistid)
+    query = await parseintodict(query)
+    return query[0]['artistname']
+
+async def pullcollabrole(conn, collabid: int, type: str) -> discord.Role:
+    info = await conn.fetchrow(
+        'SELECT * from "Core".showrole($1, $2)',
+        collabid, type
+    )
+    
+    guild = bot.get_guild(info['guildid'])
+            
+    if guild is None:
+        raise EnvironmentError("Bot not in guild or not cached")
+
+    role = guild.get_role(info['roleid'])
+   
+    return role
+
+async def showallroles(bot, conn, exceptcollab: bool=False) -> discord.Role:
+    info = await conn.fetch(
+        'SELECT * from "Core".showallroles($1)',
+        exceptcollab
+    )
+
+    roles = []
+
+    for role in info:
+        guild = bot.get_guild(role['guildid'])
+            
+        if guild is None:
+            raise EnvironmentError("Bot not in guild or not cached")
+
+        roletoadd = guild.get_role(role['roleid'])
+
+        if roletoadd is None:
+            roles.append({'guildid': role['guildid'], 'roleid': role['roleid'], 'deleted': True})
+        else:
+            roles.append(roletoadd)
+   
+    return roles
+
+async def db_deleterole(bot, conn, guildid: int, roleid: int, exceptcollab: bool=False) -> discord.Role:
+    info = await conn.fetch(
+        'SELECT * from "Core".deleterole($1, $2, $3)',
+        guildid, roleid, exceptcollab
+    )
+
+async def db_showallmessagetypes() -> list[str]:
+    async with bot.db.acquire() as conn:
+        types = await conn.fetchval(
+            'select "Core".showmessagetypes()'
+        )
+
+    return types
+
+async def pullcollabmessage(conn, collabid: int, type: str) -> discord.Message:
+    info = await conn.fetchrow(
+        'SELECT * from "Core".showmessage($1, $2)',
+        collabid, type
+    )
+
+    if info is None:
+        raise TypeError("Message doesn't exist")
+    
+    channel = await bot.fetch_channel(info['channelid'])
+    message = await channel.fetch_message(info['messageid'])
+
+    return message
+
+async def pullcollabchannel(conn, collabid: int, type: str) -> discord.TextChannel:
+    info = await conn.fetchval(
+        'SELECT "Core".showchannel($1, $2)',
+        collabid, type
+    )
+
+    if info is None:
+        raise TypeError("Channel doesn't exist")
+    
+    channel = await bot.fetch_channel(int(info))
+
+    return channel
+
+async def db_pullrankchannel(conn, guildid: int) -> discord.TextChannel:
+    info = await conn.fetchrow(
+        'SELECT guildid, channelid from "Associations".ranknotificationchannels where guildid = $1',
+        guildid
+    )
+
+    if info is None:
+        raise TypeError("Channel doesn't exist")
+
+    channel = bot.get_channel(info['channelid'])
+
+    if channel is None:
+        guild = await bot.fetch_guild(info['guildid'])
+        channel = await guild.fetch_channel(info['channelid'])
+
+    return channel
+
+async def showadminroles(asdiscordobjects: bool=False) -> list[dict]:
+    new_dict = []
+
+    async with bot.db.acquire() as conn:
+        info = await conn.fetch(
+            'SELECT * from "Core".showadminroles()'
+        )
+
+    for row in info:
+        if not isinstance(row, asyncpg.Record):
+            raise ValueError("List does not seem to contain Records")
+
+        if asdiscordobjects:
+            guild = bot.get_guild(row['guildid'])
+            
+            if guild is None:
+                raise EnvironmentError("Bot not in guild or not cached")
+
+            role = guild.get_role(row['roleid'])
+
+            new_dict.append(role)
+
+        else:
+            new_dict.append(
+                {
+                    "roleid": row['roleid'],
+                    "guildid": row['guildid']
+                }
+            )
+        
+    return new_dict
+
+async def showmemberroles(asdiscordobjects: bool=False) -> list[dict]:
+    new_dict = []
+
+    async with bot.db.acquire() as conn:
+        info = await conn.fetch(
+            'SELECT * from "Core".showmemberroles()'
+        )
+    
+    for row in info:
+        if not isinstance(row, asyncpg.Record):
+            raise ValueError("List does not seem to contain Records")
+
+        if asdiscordobjects:
+            guild = bot.get_guild(row['guildid'])
+            
+            if guild is None:
+                raise EnvironmentError("Bot not in guild or not cached")
+
+            role = guild.get_role(row['roleid'])
+
+            new_dict.append(role)
+
+        else:
+            new_dict.append(
+                {
+                    "roleid": row['roleid'],
+                    "guildid": row['guildid']
+                }
+            )
+        
+    return new_dict
+
+async def showjudgeroles(asdiscordobjects: bool=False) -> list[dict]:
+    new_dict = []
+
+    async with bot.db.acquire() as conn:
+        info = await conn.fetch(
+            'SELECT * from "Core".showjudgeroles()'
+        )
+    
+    for row in info:
+        if not isinstance(row, asyncpg.Record):
+            raise ValueError("List does not seem to contain Records")
+
+        if asdiscordobjects:
+            guild = bot.get_guild(row['guildid'])
+            
+            if guild is None:
+                raise EnvironmentError("Bot not in guild or not cached")
+
+            role = guild.get_role(row['roleid'])
+
+            new_dict.append(role)
+
+        else:
+            new_dict.append(
+                {
+                    "roleid": row['roleid'],
+                    "guildid": row['guildid']
+                }
+            )
+        
+    return new_dict
+
+async def concatenateartists(artistnames: list) -> str:
+    
+    artist_list = artistnames
+
+    if len(artist_list) == 0:
+        concatenated_artists = ""
+    elif len(artist_list) == 1:
+        concatenated_artists = artist_list[0]
+    else:
+        concatenated_artists = ", ".join(artist_list[:-1]) + f" and {artist_list[-1]}"
+
+    return concatenated_artists
+
+async def showfriendlysongnames(songs: list) -> list[discord.OptionChoice]:
+    list_of_songs = []
+
+    for row in songs:
+        artistnames = await concatenateartists(row['artistname'])
+
+        label = f"{row['songname']} by {artistnames}"
+
+        #list_of_songs[label] = str(row['songid'])
+        list_of_songs.append(
+            discord.OptionChoice(
+                name=label,
+                value=str(row['songid'])
+            )
+        )
+
+    return list_of_songs
+
+async def showfriendlycollabnames(collabs: list) -> dict:
+    list_of_collabs = []
+
+    for row in collabs:
+        label = f"{row['collabname']} (ID: {row['collabid']})"
+
+        #list_of_collabs[label] = str(row['collabid'])
+        list_of_collabs.append(
+            discord.OptionChoice(
+                name=label,
+                value=str(row['collabid'])
+            )
+        )
+
+    return list_of_collabs
+
+async def showfriendlyartistnames(collabs: list) -> dict:
+    list_of_artists = []
+
+    for row in collabs:
+        label = f"{row['artistname']} (ID: {row['artistid']})"
+
+        #list_of_artists[label] = str(row['artistid'])
+        list_of_artists.append(
+            discord.OptionChoice(
+                name=label,
+                value=str(row['artistid'])
+            )
+        )
+
+    return list_of_artists
+
+async def showfriendlyparts(parts: list) -> dict:
+    list_of_parts = []
+
+    for row in parts:
+        label = f"Part {row['partid']} / {await parse_seconds_to_time(row['offsetstart'])} - {await parse_seconds_to_time(row['offsetend'])} (Rating: {row['rating']})"
+
+        #list_of_parts[label] = str(row['partid'])
+        list_of_parts.append(
+            discord.OptionChoice(
+                name=label,
+                value=str(row['partid'])
+            )
+        )
+
+    return list_of_parts
