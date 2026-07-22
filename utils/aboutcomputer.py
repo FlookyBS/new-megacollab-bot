@@ -44,19 +44,3 @@ async def get_hardware_model():
         return out[1].strip() if len(out) > 1 else None
 
     return None
-
-async def getschemaversion() -> dict:
-    """
-    async with client.db.acquire() as conn:
-        schemaversion = await conn.fetchrow('select * from "Core".showversion()')
-    
-    schemaversion = {
-        'API_VERSION': schemaversion['apiversion'],
-        'REVISION': schemaversion['revision'],
-        'VERSION_STRING': schemaversion['versionstring'],
-    }
-    
-    return schemaversion
-    """
-
-    return {'API_VERSION': 1, 'REVISION': 1, 'VERSION_STRING': "1.0"}

@@ -3,69 +3,15 @@ from discord.ext import commands
 from discord.commands import slash_command
 from utils.aboutcomputer import (
     get_cpu_model,
-    get_hardware_model,
-    getschemaversion,
+    get_hardware_model
 )
+from utils.dbcommands import getschemaversion
 from utils.generaterandomlyric import generate_random_lyric
 import discord
 import psutil
 import platform
 from utils.version import (isstable, icyversion, icycommitdate)
-
-class AboutView(discord.ui.DesignerView):
-    def __init__(self, bot, user: discord.User, cpumodel, hardwaremodel, schemaversion, randomquote):
-        self.bot = bot
-        super().__init__(timeout=30)
-        
-        self.specs = {
-            'cpu': cpumodel,
-            'cpu_cores': psutil.cpu_count(logical=True),
-            'cpu_usage': psutil.cpu_percent(),
-            'cpu_architecture': platform.machine(),
-            'mem': psutil.virtual_memory(),
-            'os_name': platform.system() + " " + platform.release(),
-            'hardware_model': hardwaremodel
-        }
-
-        self.schemaversion = schemaversion
-
-        self.specs['total_ram'] = self.specs['mem'].total // (1024**3)
-        self.specs['used_ram']  = self.specs['mem'].used  // (1024**3)
-        self.specs['ram_percent'] = self.specs['mem'].percent
-
-        text1 = discord.ui.TextDisplay("## Bracelety")
-        text2 = discord.ui.TextDisplay(
-            "**Bracelety** is a Discord application for the **Team Ice Cube!** server that manages Geometry Dash megacollabs in a simpler and more efficient manner. Members finishing parts while you're asleep? Editing parts for drops manually every time? Those days are gone."
-        )
-        thumbnail = discord.ui.Thumbnail(bot.user.display_avatar.url)
-
-        section = discord.ui.Section(text1, text2, accessory=thumbnail)
-
-        container = discord.ui.Container(
-            section,
-            discord.ui.TextDisplay("*Bot made by <@575359302613729291>*"),
-            color=0xFFFFFF,
-        )
-        container.add_separator(divider=True, spacing=discord.SeparatorSpacingSize.large)
-        container.add_text(f"## Bracelety is powered by")
-        container.add_text(f"- **Hardware Model**: {self.specs['hardware_model']}")
-        container.add_text(f"- **Processor**: {self.specs['cpu']}")
-        container.add_text(f"- **RAM**: {self.specs['used_ram']} GB **/** {self.specs['total_ram']} GB *({self.specs['ram_percent']}% used)*")
-        container.add_text(f"- **Operating System**: {self.specs['os_name']}")
-        
-        container.add_item(discord.ui.Separator())
-
-        revision_part = (
-        f", Revision {schemaversion['REVISION']}"
-        if schemaversion['REVISION'] >= 1
-        else "")
-
-        container.add_text(f"Icy version {f"**{icyversion()}** *({icycommitdate()})*" if not isstable(icyversion()) else f"**{icycommitdate()}**"} on database version **{self.schemaversion['VERSION_STRING']}**\n*-# API Version {self.schemaversion['API_VERSION']}{revision_part}*"
-        )
-        
-        container.add_text(f"-# {randomquote}")
-
-        self.add_item(container)
+from views.about import AboutView
 
 class About(commands.Cog):
     def __init__(self, bot):
@@ -78,9 +24,17 @@ class About(commands.Cog):
         aboutview = AboutView(
             self.bot,
             ctx.user,
-            cpumodel=await get_cpu_model(),
-            hardwaremodel=await get_hardware_model(),
-            schemaversion=await getschemaversion(),
+            hardware_model=await get_hardware_model(),
+            cpu=await get_cpu_model(),
+            cpu_cores=psutil.cpu_count(logical=True),
+            cpu_usage=psutil.cpu_percent(),
+            cpu_architecture=platform.machine(),
+            mem=psutil.virtual_memory(),
+            os_name=platform.system() + " " + platform.release(),
+            schemaversion=await getschemaversion(self.bot),
+            icyversion=icyversion(),
+            icycommitdate=icycommitdate(),
+            isstable=isstable(icyversion()),
             randomquote=await generate_random_lyric(),
         )
 

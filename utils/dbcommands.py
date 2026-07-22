@@ -262,7 +262,7 @@ async def addtodatabase(bot, objecttoadd: Union[discord.Role, discord.Member, di
         async with bot.db.acquire() as conn:
             await addtodatabase_helper(objecttoadd, guild, conn)
 
-async def show_user_info(user: Union[discord.User, discord.Member], guild: discord.Guild):
+async def show_user_info(bot, user: Union[discord.User, discord.Member], guild: discord.Guild):
     async with bot.db.acquire() as conn:
         info = await conn.fetchrow(
             'SELECT * from "Core".showuser($1, $2)', 
@@ -410,13 +410,13 @@ async def showallroles(bot, conn, exceptcollab: bool=False) -> discord.Role:
    
     return roles
 
-async def db_deleterole(bot, conn, guildid: int, roleid: int, exceptcollab: bool=False) -> discord.Role:
+async def db_deleterole(conn, guildid: int, roleid: int, exceptcollab: bool=False) -> discord.Role:
     info = await conn.fetch(
         'SELECT * from "Core".deleterole($1, $2, $3)',
         guildid, roleid, exceptcollab
     )
 
-async def db_showallmessagetypes() -> list[str]:
+async def db_showallmessagetypes(bot) -> list[str]:
     async with bot.db.acquire() as conn:
         types = await conn.fetchval(
             'select "Core".showmessagetypes()'
@@ -468,7 +468,7 @@ async def db_pullrankchannel(conn, guildid: int) -> discord.TextChannel:
 
     return channel
 
-async def showadminroles(asdiscordobjects: bool=False) -> list[dict]:
+async def showadminroles(bot, asdiscordobjects: bool=False) -> list[dict]:
     new_dict = []
 
     async with bot.db.acquire() as conn:
@@ -500,7 +500,7 @@ async def showadminroles(asdiscordobjects: bool=False) -> list[dict]:
         
     return new_dict
 
-async def showmemberroles(asdiscordobjects: bool=False) -> list[dict]:
+async def showmemberroles(bot, asdiscordobjects: bool=False) -> list[dict]:
     new_dict = []
 
     async with bot.db.acquire() as conn:
@@ -532,7 +532,7 @@ async def showmemberroles(asdiscordobjects: bool=False) -> list[dict]:
         
     return new_dict
 
-async def showjudgeroles(asdiscordobjects: bool=False) -> list[dict]:
+async def showjudgeroles(bot, asdiscordobjects: bool=False) -> list[dict]:
     new_dict = []
 
     async with bot.db.acquire() as conn:
@@ -642,3 +642,15 @@ async def showfriendlyparts(parts: list) -> dict:
         )
 
     return list_of_parts
+
+async def getschemaversion(bot) -> dict:
+    async with bot.db.acquire() as conn:
+        schemaversion = await conn.fetchrow('select * from "Core".showversion()')
+    
+    schemaversion = {
+        'API_VERSION': schemaversion['apiversion'],
+        'REVISION': schemaversion['revision'],
+        'VERSION_STRING': schemaversion['versionstring'],
+    }
+    
+    return schemaversion
